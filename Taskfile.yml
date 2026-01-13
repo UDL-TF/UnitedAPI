@@ -1,0 +1,85 @@
+version: '3'
+
+vars:
+  BINARY_NAME: api
+  BUILD_DIR: bin
+  MAIN_PATH: cmd/api/main.go
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the application
+    cmds:
+      - echo "Building..."
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PATH}}
+      - echo "Build complete: {{.BUILD_DIR}}/{{.BINARY_NAME}}"
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run {{.MAIN_PATH}}
+
+  dev:
+    desc: Run the application with live reload (requires air)
+    cmds:
+      - air
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  test-cover:
+    desc: Run tests with coverage
+    cmds:
+      - go test -cover -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated: coverage.html"
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - echo "Cleaning..."
+      - rm -rf {{.BUILD_DIR}}/
+      - rm -f coverage.out coverage.html
+      - echo "Clean complete"
+
+  deps:
+    desc: Download dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Run linter (requires golangci-lint)
+    cmds:
+      - golangci-lint run
+
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t unitedapi:latest .
+
+  docker-run:
+    desc: Run Docker container
+    cmds:
+      - docker run -p 8080:8080 --env-file .env unitedapi:latest
+
+  install-air:
+    desc: Install air for live reload
+    cmds:
+      - go install github.com/cosmtrek/air@latest
+
+  install-lint:
+    desc: Install golangci-lint
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
