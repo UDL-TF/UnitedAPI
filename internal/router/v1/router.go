@@ -10,7 +10,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	v1 := rg.Group("/v1")
 	v1.Use(middleware.Logger())
 	{
-		RegisterUserRoutes(v1)
+		RegisterDemoRoutes(v1)
 		RegisterProtectedRoutes(v1)
 		RegisterAdminRoutes(v1)
 	}
