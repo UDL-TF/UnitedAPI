@@ -10,5 +10,6 @@ func RegisterDemoRoutes(rg *gin.RouterGroup) {
 	demos := rg.Group("/demos")
 	{
 		demos.GET("", handler.GetDemo)
+		demos.HEAD("", handler.GetDemo) // Support HEAD requests for demo availability checks
 	}
 }
