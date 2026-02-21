@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Auth     AuthConfig
 	// Add more config sections as needed
 	// Redis    RedisConfig
 	// JWT      JWTConfig
@@ -20,6 +21,11 @@ type ServerConfig struct {
 	Port        string
 	Environment string
 	Debug       bool
+}
+
+// AuthConfig holds authentication-related configuration
+type AuthConfig struct {
+	SecretPassword string
 }
 
 // DatabaseConfig holds database configuration
@@ -47,6 +53,9 @@ func Load() *Config {
 			Password: getEnv("DB_PASSWORD", ""),
 			DBName:   getEnv("DB_NAME", "unitedapi"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		},
+		Auth: AuthConfig{
+			SecretPassword: getEnv("SECRET_PASSWORD", ""),
 		},
 	}
 }

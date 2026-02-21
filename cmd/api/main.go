@@ -60,7 +60,7 @@ func main() {
 	engine.Use(middleware.InjectAppContext(appContext)) // Inject app context
 
 	// Setup routes with versioning
-	router.SetupRouter(engine)
+	router.SetupRouter(engine, cfg, db)
 
 	// Create HTTP server
 	server := &http.Server{

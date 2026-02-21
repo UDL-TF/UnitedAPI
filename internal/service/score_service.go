@@ -1,0 +1,96 @@
+package service
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/UDL-TF/UnitedAPI/internal/logger"
+	"github.com/UDL-TF/UnitedAPI/internal/model"
+	"github.com/UDL-TF/UnitedAPI/internal/repository"
+	"go.uber.org/zap"
+)
+
+// ScoreService handles business logic for score operations
+type ScoreService struct {
+	repo *repository.ScoreRepository
+}
+
+// NewScoreService creates a new instance of ScoreService
+func NewScoreService(repo *repository.ScoreRepository) *ScoreService {
+	return &ScoreService{
+		repo: repo,
+	}
+}
+
+// ProcessScoreData processes the score data from the game server
+func (s *ScoreService) ProcessScoreData(scoreData *model.ScoreData) error {
+	logger.Log.Info("Processing score data", zap.Any("scoreData", scoreData))
+
+	// Update the database with match round information
+	err := s.repo.UpdateMatchRound(
+		scoreData.RoundID,
+		scoreData.WinnerTeamID,
+		scoreData.LoserTeamID,
+		scoreData.HomePoints,
+		scoreData.AwayPoints,
+	)
+	if err != nil {
+		logger.Log.Error("Failed to update match round", zap.Error(err))
+		return fmt.Errorf("error updating data: %w", err)
+	}
+
+	// Call external API to update scores
+	if err := s.updateScores(scoreData.MatchID); err != nil {
+		logger.Log.Error("Failed to update scores via external API", zap.Error(err))
+		return fmt.Errorf("error updating scores: %w", err)
+	}
+
+	// Check if all rounds are done
+	allDone, err := s.repo.AreAllRoundsDone(scoreData.MatchID)
+	if err != nil {
+		logger.Log.Error("Failed to check if all rounds are done", zap.Error(err))
+		// Continue processing even if this check fails
+	}
+
+	// If all rounds are done, update match status to completed (status 3)
+	if allDone {
+		err = s.repo.UpdateMatchStatus(scoreData.MatchID, 3)
+		if err != nil {
+			logger.Log.Error("Failed to update match status", zap.Error(err))
+			return fmt.Errorf("error updating match status: %w", err)
+		}
+
+		// Update scores again after marking match as complete
+		if err := s.updateScores(scoreData.MatchID); err != nil {
+			logger.Log.Error("Failed to update scores via external API after completion", zap.Error(err))
+			return fmt.Errorf("error updating scores: %w", err)
+		}
+	}
+
+	logger.Log.Info("Successfully processed score data", zap.Int("matchID", scoreData.MatchID), zap.Int("roundID", scoreData.RoundID))
+	return nil
+}
+
+// updateScores calls the external API to update scores
+func (s *ScoreService) updateScores(matchID int) error {
+	updateScoresURL := fmt.Sprintf("https://udl.tf/leagues/matches/%d/update_scores", matchID)
+
+	req, err := http.NewRequest(http.MethodPost, updateScoresURL, nil)
+	if err != nil {
+		return fmt.Errorf("error creating request to update scores: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request to update scores: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("external API returned non-200 status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
