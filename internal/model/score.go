@@ -38,6 +38,7 @@ type Match struct {
 	RosterAwayID  int  `gorm:"column:away_team_id"`
 	RosterHomeID  int  `gorm:"column:home_team_id"`
 	WinLimit      int  `gorm:"column:win_limit"`
+	RoundWinLimit int  `gorm:"column:round_win_limit"`
 }
 
 // TableName overrides the table name for Match

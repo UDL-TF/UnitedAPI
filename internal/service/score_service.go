@@ -52,22 +52,41 @@ func (s *ScoreService) ProcessScoreData(scoreData *model.ScoreData) error {
 		// Continue processing even if this check fails
 	}
 
-	// If all rounds are done, update match status to completed (status 3)
-	if allDone {
-		err = s.repo.UpdateMatchStatus(scoreData.MatchID, 3)
-		if err != nil {
-			logger.Log.Error("Failed to update match status", zap.Error(err))
-			return fmt.Errorf("error updating match status: %w", err)
+	shouldComplete := allDone
+	completionReason := "all rounds completed"
+	if !shouldComplete {
+		reachedLimit, checkErr := s.repo.HasTeamReachedRoundWinLimit(scoreData.MatchID)
+		if checkErr != nil {
+			logger.Log.Error("Failed to determine if round win limit was reached", zap.Error(checkErr))
+		} else if reachedLimit {
+			shouldComplete = true
+			completionReason = "round win limit reached"
 		}
+	}
 
-		// Update scores again after marking match as complete
-		if err := s.updateScores(scoreData.MatchID); err != nil {
-			logger.Log.Error("Failed to update scores via external API after completion", zap.Error(err))
-			return fmt.Errorf("error updating scores: %w", err)
+	if shouldComplete {
+		logger.Log.Info("Marking match as completed", zap.Int("matchID", scoreData.MatchID), zap.String("reason", completionReason))
+		if err := s.completeMatch(scoreData.MatchID); err != nil {
+			return err
 		}
 	}
 
 	logger.Log.Info("Successfully processed score data", zap.Int("matchID", scoreData.MatchID), zap.Int("roundID", scoreData.RoundID))
+	return nil
+}
+
+// completeMatch finalizes a match by setting its status and notifying the league site
+func (s *ScoreService) completeMatch(matchID int) error {
+	if err := s.repo.UpdateMatchStatus(matchID, 3); err != nil {
+		logger.Log.Error("Failed to update match status", zap.Error(err), zap.Int("matchID", matchID))
+		return fmt.Errorf("error updating match status: %w", err)
+	}
+
+	if err := s.updateScores(matchID); err != nil {
+		logger.Log.Error("Failed to update scores via external API after completion", zap.Error(err), zap.Int("matchID", matchID))
+		return fmt.Errorf("error updating scores: %w", err)
+	}
+
 	return nil
 }
 

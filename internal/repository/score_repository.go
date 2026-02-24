@@ -80,3 +80,49 @@ func (r *ScoreRepository) UpdateMatchStatus(matchID, status int) error {
 
 	return nil
 }
+
+// HasTeamReachedRoundWinLimit checks whether either team reached the configured round win limit
+func (r *ScoreRepository) HasTeamReachedRoundWinLimit(matchID int) (bool, error) {
+	var match model.Match
+	matchQuery := r.db.Select("round_win_limit", "home_team_id", "away_team_id").Where("id = ?", matchID).First(&match)
+	if matchQuery.Error != nil {
+		return false, fmt.Errorf("failed to fetch match info: %w", matchQuery.Error)
+	}
+
+	validWinners := make(map[int]struct{})
+	if match.RosterHomeID != 0 {
+		validWinners[match.RosterHomeID] = struct{}{}
+	}
+	if match.RosterAwayID != 0 {
+		validWinners[match.RosterAwayID] = struct{}{}
+	}
+
+	if match.RoundWinLimit <= 0 || len(validWinners) == 0 {
+		return false, nil
+	}
+
+	var rounds []model.MatchRound
+	roundsQuery := r.db.Select("winner_id").Where("match_id = ?", matchID).Find(&rounds)
+	if roundsQuery.Error != nil {
+		return false, fmt.Errorf("failed to fetch match rounds: %w", roundsQuery.Error)
+	}
+
+	wins := make(map[int]int)
+	for _, round := range rounds {
+		if round.WinnerID == nil {
+			continue
+		}
+
+		winnerID := *round.WinnerID
+		if _, ok := validWinners[winnerID]; !ok {
+			continue
+		}
+
+		wins[winnerID]++
+		if wins[winnerID] >= match.RoundWinLimit {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
