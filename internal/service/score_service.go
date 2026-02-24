@@ -1,8 +1,11 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/UDL-TF/UnitedAPI/internal/logger"
 	"github.com/UDL-TF/UnitedAPI/internal/model"
@@ -41,8 +44,9 @@ func (s *ScoreService) ProcessScoreData(scoreData *model.ScoreData) error {
 
 	// Call external API to update scores
 	if err := s.updateScores(scoreData.MatchID); err != nil {
-		logger.Log.Error("Failed to update scores via external API", zap.Error(err))
-		return fmt.Errorf("error updating scores: %w", err)
+		if handledErr := s.handleScoreUpdateError(scoreData.MatchID, "Failed to update scores via external API", err); handledErr != nil {
+			return handledErr
+		}
 	}
 
 	// Check if all rounds are done
@@ -83,8 +87,9 @@ func (s *ScoreService) completeMatch(matchID int) error {
 	}
 
 	if err := s.updateScores(matchID); err != nil {
-		logger.Log.Error("Failed to update scores via external API after completion", zap.Error(err), zap.Int("matchID", matchID))
-		return fmt.Errorf("error updating scores: %w", err)
+		if handledErr := s.handleScoreUpdateError(matchID, "Failed to update scores via external API after completion", err); handledErr != nil {
+			return handledErr
+		}
 	}
 
 	return nil
@@ -107,9 +112,42 @@ func (s *ScoreService) updateScores(matchID int) error {
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("external API returned non-200 status: %d", resp.StatusCode)
+		return &ScoreUpdateError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(bodyBytes))}
 	}
 
 	return nil
+}
+
+// handleScoreUpdateError centralizes how we react to external score sync failures
+func (s *ScoreService) handleScoreUpdateError(matchID int, logMessage string, err error) error {
+	var scoreErr *ScoreUpdateError
+	if errors.As(err, &scoreErr) && scoreErr.StatusCode == http.StatusUnprocessableEntity {
+		logger.Log.Warn(logMessage,
+			zap.Int("matchID", matchID),
+			zap.Int("status", scoreErr.StatusCode),
+			zap.String("externalMessage", scoreErr.Body))
+		return nil
+	}
+
+	logger.Log.Error(logMessage, zap.Error(err), zap.Int("matchID", matchID))
+	return fmt.Errorf("error updating scores: %w", err)
+}
+
+// ScoreUpdateError captures structured details from the external API when it fails
+type ScoreUpdateError struct {
+	StatusCode int
+	Body       string
+}
+
+// Error implements the error interface for ScoreUpdateError
+func (e *ScoreUpdateError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Body != "" {
+		return fmt.Sprintf("external API returned status %d: %s", e.StatusCode, e.Body)
+	}
+	return fmt.Sprintf("external API returned status %d", e.StatusCode)
 }
