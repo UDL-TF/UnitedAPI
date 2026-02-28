@@ -3,6 +3,7 @@ package context
 import (
 	"context"
 
+	"github.com/UDL-TF/UnitedAPI/internal/storage"
 	"gorm.io/gorm"
 )
 
@@ -11,6 +12,8 @@ import (
 type AppContext struct {
 	// Database connection (example - add when needed)
 	DB *gorm.DB
+	// MinIO storage client
+	MinIOClient *storage.MinIOClient
 	// Context for cancellation/timeout
 	Ctx context.Context
 }
@@ -29,4 +32,15 @@ func (ac *AppContext) SetDB(db *gorm.DB) *AppContext {
 
 func (ac *AppContext) GetDB() *gorm.DB {
 	return ac.DB
+}
+
+// SetMinIOClient sets the MinIO client
+func (ac *AppContext) SetMinIOClient(client *storage.MinIOClient) *AppContext {
+	ac.MinIOClient = client
+	return ac
+}
+
+// GetMinIOClient returns the MinIO client
+func (ac *AppContext) GetMinIOClient() *storage.MinIOClient {
+	return ac.MinIOClient
 }

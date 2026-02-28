@@ -16,5 +16,6 @@ func RegisterRoutes(rg *gin.RouterGroup, cfg *config.Config, scoreHandler *handl
 		RegisterProtectedRoutes(v1)
 		RegisterAdminRoutes(v1)
 		RegisterScoreRoutes(v1, scoreHandler, cfg.Auth.SecretPassword)
+		RegisterStorageRoutes(v1)
 	}
 }

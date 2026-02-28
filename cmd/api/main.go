@@ -16,6 +16,7 @@ import (
 	"github.com/UDL-TF/UnitedAPI/internal/logger"
 	"github.com/UDL-TF/UnitedAPI/internal/middleware"
 	"github.com/UDL-TF/UnitedAPI/internal/router"
+	"github.com/UDL-TF/UnitedAPI/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -49,6 +50,13 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	appContext.SetDB(db)
+
+	// Initialize MinIO client
+	minioClient, err := storage.NewMinIOClient(&cfg.MinIO)
+	if err != nil {
+		log.Fatalf("Failed to initialize MinIO client: %v", err)
+	}
+	appContext.SetMinIOClient(minioClient)
 
 	// Create Gin engine
 	engine := gin.New()

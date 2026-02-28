@@ -11,6 +11,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Auth     AuthConfig
+	MinIO    MinIOConfig
 	// Add more config sections as needed
 	// Redis    RedisConfig
 	// JWT      JWTConfig
@@ -38,6 +39,15 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
+// MinIOConfig holds MinIO configuration
+type MinIOConfig struct {
+	Endpoint        string
+	AccessKeyID     string
+	SecretAccessKey string
+	UseSSL          bool
+	BucketName      string
+}
+
 // Load loads configuration from environment variables
 func Load() *Config {
 	return &Config{
@@ -56,6 +66,13 @@ func Load() *Config {
 		},
 		Auth: AuthConfig{
 			SecretPassword: getEnv("SECRET_PASSWORD", ""),
+		},
+		MinIO: MinIOConfig{
+			Endpoint:        getEnv("MINIO_ENDPOINT", ""),
+			AccessKeyID:     getEnv("MINIO_ACCESS_KEY_ID", ""),
+			SecretAccessKey: getEnv("MINIO_SECRET_ACCESS_KEY", ""),
+			UseSSL:          getEnvBool("MINIO_USE_SSL", false),
+			BucketName:      getEnv("MINIO_BUCKET_NAME", "default"),
 		},
 	}
 }
