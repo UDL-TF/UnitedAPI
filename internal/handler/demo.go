@@ -123,13 +123,12 @@ func DownloadDemo(c *gin.Context) {
 	}
 	defer object.Close()
 
-	// Set response headers for compressed file download
-	filename := fmt.Sprintf("%s.zst", demo.RawDemoName)
+	// Set response headers for uncompressed file download
+	filename := demo.RawDemoName
 	c.Header("Content-Type", demo.ContentType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-	if demo.CompressedSize != nil {
-		c.Header("Content-Length", fmt.Sprintf("%d", *demo.CompressedSize))
-	}
+	// Use original file size, not compressed size
+	c.Header("Content-Length", fmt.Sprintf("%d", demo.FileSize))
 
 	// Copy file content to response
 	_, err = io.Copy(c.Writer, object)

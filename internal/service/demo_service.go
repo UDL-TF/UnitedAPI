@@ -99,7 +99,7 @@ func (s *DemoService) GetDemo(req *model.DemoGetRequest) (*model.Demo, error) {
 	return nil, fmt.Errorf("insufficient parameters: need either (match_id + round_id) or (tournament_id + match_id + round_id)")
 }
 
-// DownloadDemo gets the demo file from storage
+// DownloadDemo gets the demo file from storage and decompresses it
 func (s *DemoService) DownloadDemo(demoID int) (io.ReadCloser, *model.Demo, error) {
 	// Get demo record
 	demo, err := s.demoRepo.GetByID(demoID)
@@ -112,8 +112,15 @@ func (s *DemoService) DownloadDemo(demoID int) (io.ReadCloser, *model.Demo, erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download file from storage: %w", err)
 	}
+	defer object.Close()
 
-	return object, demo, nil
+	// Decompress the file
+	decompressedReader, err := s.decompressFile(object)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decompress file: %w", err)
+	}
+
+	return decompressedReader, demo, nil
 }
 
 // ListDemos retrieves a list of demos with pagination
@@ -169,6 +176,25 @@ func (s *DemoService) compressFile(file multipart.File) (io.Reader, int64, error
 	// Return compressed data as reader
 	compressedReader := strings.NewReader(string(compressedData))
 	return compressedReader, int64(len(compressedData)), nil
+}
+
+// decompressFile decompresses a zstd compressed file and returns a reader
+func (s *DemoService) decompressFile(compressedReader io.Reader) (io.ReadCloser, error) {
+	// Create zstd decoder
+	decoder, err := zstd.NewReader(compressedReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zstd decoder: %w", err)
+	}
+
+	// Read and decompress all data
+	decompressedData, err := io.ReadAll(decoder)
+	decoder.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress data: %w", err)
+	}
+
+	// Return decompressed data as ReadCloser
+	return io.NopCloser(strings.NewReader(string(decompressedData))), nil
 }
 
 // generateObjectName creates a unique object name for the demo
