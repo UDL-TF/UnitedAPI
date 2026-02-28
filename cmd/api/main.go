@@ -15,6 +15,7 @@ import (
 	"github.com/UDL-TF/UnitedAPI/internal/database"
 	"github.com/UDL-TF/UnitedAPI/internal/logger"
 	"github.com/UDL-TF/UnitedAPI/internal/middleware"
+	"github.com/UDL-TF/UnitedAPI/internal/model"
 	"github.com/UDL-TF/UnitedAPI/internal/router"
 	"github.com/UDL-TF/UnitedAPI/internal/storage"
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,13 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	appContext.SetDB(db)
+
+	// Run database migrations
+	logger.Log.Info("Running database migrations...")
+	if err := db.AutoMigrate(&model.Demo{}, &model.MatchRound{}, &model.Match{}); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
+	}
+	logger.Log.Info("Database migrations completed successfully")
 
 	// Initialize MinIO client
 	minioClient, err := storage.NewMinIOClient(&cfg.MinIO)

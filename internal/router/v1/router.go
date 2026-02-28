@@ -12,10 +12,9 @@ func RegisterRoutes(rg *gin.RouterGroup, cfg *config.Config, scoreHandler *handl
 	v1 := rg.Group("/v1")
 	v1.Use(middleware.Logger())
 	{
-		RegisterDemoRoutes(v1)
+		RegisterDemoRoutes(v1, cfg.Auth.SecretDemoPassword)
 		RegisterProtectedRoutes(v1)
 		RegisterAdminRoutes(v1)
 		RegisterScoreRoutes(v1, scoreHandler, cfg.Auth.SecretPassword)
-		RegisterStorageRoutes(v1)
 	}
 }

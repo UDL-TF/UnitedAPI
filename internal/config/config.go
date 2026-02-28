@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds all application configuration
@@ -26,7 +28,8 @@ type ServerConfig struct {
 
 // AuthConfig holds authentication-related configuration
 type AuthConfig struct {
-	SecretPassword string
+	SecretPassword     string
+	SecretDemoPassword string
 }
 
 // DatabaseConfig holds database configuration
@@ -50,6 +53,16 @@ type MinIOConfig struct {
 
 // Load loads configuration from environment variables
 func Load() *Config {
+	// Check if DEBUG is set to true to load .env file
+	if isDebugMode() {
+		if err := godotenv.Load(); err != nil {
+			// Log the error but don't fail if .env file doesn't exist
+			log.Printf("Warning: Could not load .env file: %v", err)
+		} else {
+			log.Println("Debug mode: .env file loaded")
+		}
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Port:        getEnv("PORT", "8080"),
@@ -65,7 +78,8 @@ func Load() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Auth: AuthConfig{
-			SecretPassword: getEnv("SECRET_PASSWORD", ""),
+			SecretPassword:     getEnv("SECRET_PASSWORD", ""),
+			SecretDemoPassword: getEnv("SECRET_DEMO_PASSWORD", ""),
 		},
 		MinIO: MinIOConfig{
 			Endpoint:        getEnv("MINIO_ENDPOINT", ""),
@@ -90,6 +104,17 @@ func (c *Config) Validate() error {
 }
 
 // Helper functions
+
+func isDebugMode() bool {
+	debug := os.Getenv("DEBUG")
+	if debug == "" {
+		return false // Default to debug mode if not set
+	}
+	if boolVal, err := strconv.ParseBool(debug); err == nil {
+		return boolVal
+	}
+	return false // Default to debug mode if parsing fails
+}
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
