@@ -30,7 +30,7 @@ func (Demo) TableName() string {
 
 // DemoUploadRequest represents the request payload for uploading a demo
 type DemoUploadRequest struct {
-	IsTournament bool   `form:"is_tournament" binding:"required"`
+	IsTournament bool   `form:"is_tournament"`
 	TournamentID *int   `form:"tournament_id"`
 	MatchID      *int   `form:"match_id"`
 	RoundID      *int   `form:"round_id"`
