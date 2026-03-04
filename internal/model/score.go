@@ -6,8 +6,8 @@ type ScoreData struct {
 	RoundID      int `json:"round_id" binding:"required"`
 	WinnerTeamID int `json:"winner_team_id" binding:"required"`
 	LoserTeamID  int `json:"loser_team_id" binding:"required"`
-	AwayPoints   int `json:"away_points" binding:"required"`
-	HomePoints   int `json:"home_points" binding:"required"`
+	AwayPoints   int `json:"away_points" binding:"min=0"`
+	HomePoints   int `json:"home_points" binding:"min=0"`
 }
 
 // MatchRound represents a match round in the database
