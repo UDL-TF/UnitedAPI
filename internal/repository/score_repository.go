@@ -81,6 +81,84 @@ func (r *ScoreRepository) UpdateMatchStatus(matchID, status int) error {
 	return nil
 }
 
+// UpdateMatchWinner updates the winner and loser information of a match
+func (r *ScoreRepository) UpdateMatchWinner(matchID, winnerID, loserID int) error {
+	result := r.db.Model(&model.Match{}).
+		Where("id = ?", matchID).
+		Updates(map[string]interface{}{
+			"has_winner": true,
+			"winner_id":  winnerID,
+			"loser_id":   loserID,
+		})
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update match winner: %w", result.Error)
+	}
+
+	return nil
+}
+
+// DetermineMatchWinner determines the winner and loser of a match based on round wins
+func (r *ScoreRepository) DetermineMatchWinner(matchID int) (winnerID int, loserID int, err error) {
+	var match model.Match
+	matchQuery := r.db.Select("round_win_limit", "home_team_id", "away_team_id").Where("id = ?", matchID).First(&match)
+	if matchQuery.Error != nil {
+		return 0, 0, fmt.Errorf("failed to fetch match info: %w", matchQuery.Error)
+	}
+
+	validTeams := []int{}
+	if match.RosterHomeID != 0 {
+		validTeams = append(validTeams, match.RosterHomeID)
+	}
+	if match.RosterAwayID != 0 {
+		validTeams = append(validTeams, match.RosterAwayID)
+	}
+
+	if len(validTeams) != 2 {
+		return 0, 0, fmt.Errorf("match %d must have exactly 2 teams, found %d", matchID, len(validTeams))
+	}
+
+	var rounds []model.MatchRound
+	roundsQuery := r.db.Select("winner_id").Where("match_id = ?", matchID).Find(&rounds)
+	if roundsQuery.Error != nil {
+		return 0, 0, fmt.Errorf("failed to fetch match rounds: %w", roundsQuery.Error)
+	}
+
+	wins := make(map[int]int)
+	// Initialize win counts for both teams
+	for _, teamID := range validTeams {
+		wins[teamID] = 0
+	}
+
+	// Count wins for each team
+	for _, round := range rounds {
+		if round.WinnerID == nil {
+			continue
+		}
+
+		roundWinnerID := *round.WinnerID
+		if _, exists := wins[roundWinnerID]; exists {
+			wins[roundWinnerID]++
+		}
+	}
+
+	// Determine winner and loser
+	team1ID := validTeams[0]
+	team2ID := validTeams[1]
+	team1Wins := wins[team1ID]
+	team2Wins := wins[team2ID]
+
+	if team1Wins > team2Wins {
+		return team1ID, team2ID, nil
+	} else if team2Wins > team1Wins {
+		return team2ID, team1ID, nil
+	} else {
+		// In case of a tie, we could have additional logic here
+		// For now, we'll return an error as this shouldn't happen in a properly configured match
+		return 0, 0, fmt.Errorf("match %d ended in a tie (%d wins each)", matchID, team1Wins)
+	}
+}
+
 // HasTeamReachedRoundWinLimit checks whether either team reached the configured round win limit
 func (r *ScoreRepository) HasTeamReachedRoundWinLimit(matchID int) (bool, error) {
 	var match model.Match

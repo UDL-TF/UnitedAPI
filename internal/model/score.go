@@ -39,6 +39,9 @@ type Match struct {
 	RosterHomeID  int  `gorm:"column:home_team_id"`
 	WinLimit      int  `gorm:"column:win_limit"`
 	RoundWinLimit int  `gorm:"column:round_win_limit"`
+	HasWinner     bool `gorm:"column:has_winner"`
+	WinnerID      *int `gorm:"column:winner_id"`
+	LoserID       *int `gorm:"column:loser_id"`
 }
 
 // TableName overrides the table name for Match

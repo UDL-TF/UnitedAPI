@@ -79,11 +79,34 @@ func (s *ScoreService) ProcessScoreData(scoreData *model.ScoreData) error {
 	return nil
 }
 
-// completeMatch finalizes a match by setting its status and notifying the league site
+// completeMatch finalizes a match by setting its status, determining winner/loser, and notifying the league site
 func (s *ScoreService) completeMatch(matchID int) error {
+	// Update match status first
 	if err := s.repo.UpdateMatchStatus(matchID, 3); err != nil {
 		logger.Log.Error("Failed to update match status", zap.Error(err), zap.Int("matchID", matchID))
 		return fmt.Errorf("error updating match status: %w", err)
+	}
+
+	// Only set winner/loser if ALL rounds are actually completed
+	allRoundsDone, err := s.repo.AreAllRoundsDone(matchID)
+	if err != nil {
+		logger.Log.Error("Failed to check if all rounds are done", zap.Error(err), zap.Int("matchID", matchID))
+		// Continue without setting winner/loser if we can't verify all rounds are done
+	} else if allRoundsDone {
+		// Determine the match winner and loser
+		winnerID, loserID, err := s.repo.DetermineMatchWinner(matchID)
+		if err != nil {
+			logger.Log.Error("Failed to determine match winner", zap.Error(err), zap.Int("matchID", matchID))
+		} else {
+			// Update match winner and loser information
+			if err := s.repo.UpdateMatchWinner(matchID, winnerID, loserID); err != nil {
+				logger.Log.Error("Failed to update match winner", zap.Error(err), zap.Int("matchID", matchID), zap.Int("winnerID", winnerID), zap.Int("loserID", loserID))
+			} else {
+				logger.Log.Info("Match completed with winner and loser", zap.Int("matchID", matchID), zap.Int("winnerID", winnerID), zap.Int("loserID", loserID))
+			}
+		}
+	} else {
+		logger.Log.Info("Match completed but not all rounds finished - winner/loser not set", zap.Int("matchID", matchID))
 	}
 
 	if err := s.updateScores(matchID); err != nil {
